@@ -1,6 +1,12 @@
 @ Overview: LED lights will blink one after another in clockwise rotation until button is pressed
 @ Goal: Button pressed at the same time the starting LED light blinks
 @       If button pressed any other time all the LED lights will blink three times to show that the game has lost and then the starting LED will blink the amount of times the button was correctly pressed
+@ To do: Ensure all lights can blink
+         Ensure lights can blink one after the other in clockwise rotation
+         Ensure button pressed if in the correct time frame will increase score count
+         Ensure button pressed if not in correct time frame will cause all lights to blink
+         Ensure after all lights blink the starting light will blink the score count
+
 
 # LINK TO TEAM VIDEO
 # https://
