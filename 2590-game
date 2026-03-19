@@ -180,10 +180,12 @@ EXTI0_IRQHandler:
 
   PUSH  {R4,R5,LR}
 
-  LDR   R4, =button_count           @ count = count + 1
-  LDR   R5, [R4]                    @
-  ADD   R5, R5, #1                  @
-  STR   R5, [R4]                    @
+                                    @ if (LD3_start_blink < button_pressed_time < LD3_end_blink)
+
+  LDR   R4, =score_count            @   score_count++;
+  LDR   R5, [R4]
+  ADD   R5, R5, #1
+  STR   R5, [R4]
 
   LDR   R4, =EXTI_PR                @ Clear (acknowledge) the interrupt
   MOV   R5, #(1<<0)                 @
