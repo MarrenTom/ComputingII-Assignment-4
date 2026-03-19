@@ -4,7 +4,7 @@
 @ To do: Ensure all lights can blink
          Ensure lights can blink one after the other in clockwise rotation
          Ensure button pressed if in the correct time frame will increase score count
-         Ensure button pressed if not in correct time frame will cause all lights to blink
+         Ensure button pressed if not in correct time frame will cause all lights to blink 3 times
          Ensure after all lights blink the starting light will blink the score count
 
 
