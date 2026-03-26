@@ -159,9 +159,11 @@ SysTick_Handler:
   LSL     R0, R0, #1                @   ledState <<= 1;
 
   TST     R0, #0b11111111           @   if (ledState & 0b11111111 == 0) {
-  IT      EQ
-  MOVEQ   R0, #1                    @     ledState = 1;
-                                    @   }
+  BNE     .LendState
+  MOV     R0, #1                    @     ledState = 1;
+.LendState:                         @   }
+
+  STR     R0, [R4]                  @   word[ledStateAddress] = ledState;
                                     
   BL      setLEDs                   @   setLEDs(ledState);
   
@@ -217,7 +219,7 @@ setLEDs:
   LDR     R6, [R5]
   LDR     R4, =0b11111111<<(LD4_PIN)  @ mask = 0b11111111<<(LD4_PIN);
   BIC     R6, R6, R4                  @ ledState = bitClear(ledState, mask);
-  ORR     R6, R6, R4, LSL LD4_PIN     @ ledState |= bitmap<<(LD4_PIN);
+  ORR     R6, R6, R0, LSL LD4_PIN     @ ledState |= bitmap<<(LD4_PIN);
   STR     R6, [R5]                    @ word[ledAddress] = ledState
 
   POP     {R4-R6,PC}
