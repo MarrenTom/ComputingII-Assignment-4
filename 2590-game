@@ -2,10 +2,10 @@
 @ Goal: Button pressed at the same time the starting LED light blinks
 @       If button pressed any other time all the LED lights will blink three times to show that the game has lost and then the starting LED will blink the amount of times the button was correctly pressed
 @ To do: Ensure all lights can blink
-         Ensure lights can blink one after the other in clockwise rotation
-         Ensure button pressed if in the correct time frame will cause starting light to turn green and increase score count
-         Ensure button pressed if not in correct time frame will cause all lights to blink 3 times
-         Ensure after all lights blink the starting light will blink the score count
+@        Ensure lights can blink one after the other in clockwise rotation
+@        Ensure button pressed if in the correct time frame will cause starting light to turn green and increase score count
+@        Ensure button pressed if not in correct time frame will cause all lights to blink 3 times
+@        Ensure after all lights blink the starting light will blink the score count
 
 
 # LINK TO TEAM VIDEO
@@ -89,7 +89,7 @@ Main:
   @
 
   @ Initialise count to zero
-  LDR   R4, =button_count             @ count = 0;
+  LDR   R4, =score_count              @ count = 0;
   MOV   R5, #0                        @
   STR   R5, [R4]                      @
 
@@ -118,6 +118,11 @@ Main:
   LDR     R4, =NVIC_ISER
   MOV     R5, #(1<<6)
   STR     R5, [R4]
+
+  @ Initialise state to zero
+  LDR   R4, =led_state                @ state = 1;
+  MOV   R5, #1                        @
+  STR   R5, [R4]                      @
 
   @ Nothing else to do in Main
   @ Idle loop forever (welcome to interrupts!!)
@@ -149,12 +154,16 @@ SysTick_Handler:
 
 .LelseFire:                         @ else {
 
-  LDR     R4, =GPIOE_ODR            @   Invert LEDs
-  LDR     R5, [R4]                  @
-  
-  LDR     R6, =0b11111111<<(LD4_PIN)
-  EOR     R5, R6                    @   GPIOE_ODR = GPIOE_ODR ^ (0b11111111<<(LD4_PIN));
-  STR     R5, [R4]                  @ 
+  LDR     R4, =led_state            @   ledState = word[ledStateAddress];
+  LDR     R0, [R4]                  @   
+  LSL     R0, R0, #1                @   ledState <<= 1;
+
+  TST     R0, #0b11111111           @   if (ledState & 0b11111111 == 0) {
+  IT      EQ
+  MOVEQ   R0, #1                    @     ledState = 1;
+                                    @   }
+                                    
+  BL      setLEDs                   @   setLEDs(ledState);
   
   LDR     R4, =blink_countdown      @   countdown = BLINK_PERIOD;
   LDR     R5, =BLINK_PERIOD         @
@@ -194,13 +203,34 @@ EXTI0_IRQHandler:
   @ Return from interrupt handler
   POP  {R4,R5,PC}
 
+@
+@ setLEDs
+@ Given a bitmap of LED states, update the corresponding LEDs
+@
+@ Parameters:
+@   R0: bitmap of LED states (8-bits)
+@
+setLEDs:
+  PUSH    {R4-R6,LR}
+
+  LDR     R5, =GPIOE_ODR              @ ledState = word[ledAddress];
+  LDR     R6, [R5]
+  LDR     R4, =0b11111111<<(LD4_PIN)  @ mask = 0b11111111<<(LD4_PIN);
+  BIC     R6, R6, R4                  @ ledState = bitClear(ledState, mask);
+  ORR     R6, R6, R4, LSL LD4_PIN     @ ledState |= bitmap<<(LD4_PIN);
+  STR     R6, [R5]                    @ word[ledAddress] = ledState
+
+  POP     {R4-R6,PC}
 
   .section .data
   
-button_count:
+score_count:
   .space  4
 
 blink_countdown:
+  .space  4
+
+led_state:
   .space  4
 
   .end
