@@ -182,31 +182,32 @@ SysTick_Handler:
   LDR     R5, =game_over            @       gameOver = true;
   MOV     R6, #1
   STR     R6, [R5]
+  MOV     R0, #0b11111111           @       ledState = 0b11111111;
 .LendIfButton:                      @     }
 .LendIfTarget:                      @   }
-
-
-  LSL     R0, R0, #1                @   ledState <<= 1;
-
-  TST     R0, #0b11111111           @   if (ledState & 0b11111111 == 0) {
-  BNE     .LendState
-  MOV     R0, #1                    @     ledState = 1;
-.LendState:                         @   }
-
-  STR     R0, [R4]                  @   word[ledStateAddress] = ledState;
 
   LDR     R5, =game_over            @   if (gameOver) {
   LDR     R5, [R5]
   CMP     R5, #1
-  BNE     .LendIfGameOver
-  MOV     R0, #0b11111111           @     ledState = 0b11111111;
+  BNE     .LelseIfGameOver
+  EOR     R0, R0, #0b11111111       @     ledState ^= 0b11111111;
+  B       .LendIfGameOver
+.LelseIfGameOver:                   @   } else {
+
+  LSL     R0, R0, #1                @     ledState <<= 1;
+
+  TST     R0, #0b11111111           @     if (ledState & 0b11111111 == 0) {
+  BNE     .LendState
+  MOV     R0, #1                    @       ledState = 1;
+.LendState:                         @     }
 .LendIfGameOver:                    @   }
                                     
+  STR     R0, [R4]                  @   word[ledStateAddress] = ledState;
   BL      setLEDs                   @   setLEDs(ledState);
 
-  LDR     R4, =button_press           @   button = false;
+  LDR     R4, =button_press         @   button = false;
   MOV     R5, #0
-  STR     R5, [R4]                    @
+  STR     R5, [R4]                  
   
   LDR     R4, =blink_countdown      @   countdown = BLINK_PERIOD;
   LDR     R5, =BLINK_PERIOD         @
