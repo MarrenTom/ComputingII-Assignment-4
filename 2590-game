@@ -23,7 +23,7 @@
   @ Definitions are in definitions.s to keep this file "clean"
   #include "definitions.S"
 
-  .equ    BLINK_PERIOD, 250
+  .equ    BLINK_PERIOD, 1000 @ TODO: temp orginal 250
 
   .section .text
   .type Main, %function
@@ -124,6 +124,16 @@ Main:
   MOV   R5, #1                        @
   STR   R5, [R4]                      @
 
+  @ Initialise button to false
+  LDR   R4, =button_press             @ button = false;
+  MOV   R5, #0                        @
+  STR   R5, [R4]                      @
+
+  @ Initialise gameOver to false
+  LDR   R4, =game_over                @ gameOver = false;
+  MOV   R5, #0                        @
+  STR   R5, [R4]                      @
+
   @ Nothing else to do in Main
   @ Idle loop forever (welcome to interrupts!!)
 Idle_Loop:
@@ -156,6 +166,26 @@ SysTick_Handler:
 
   LDR     R4, =led_state            @   ledState = word[ledStateAddress];
   LDR     R0, [R4]                  @   
+
+  CMP     R0, #0b100000           @   if (ledState == 0b100000) {
+  BNE     .LendIfTarget
+  LDR     R5, =button_press         @     if (button == true) {
+  LDR     R5, [R5]
+  CMP     R5, #1
+  BNE     .LelseIfButtton
+  LDR     R5, =score_count          @       score += 1;
+  LDR     R6, [R5]
+  ADD     R6, R6, #1
+  STR     R6, [R5]
+  B       .LendIfButton             @     }
+.LelseIfButtton:                    @     else {
+  LDR     R5, =game_over            @       gameOver = true;
+  MOV     R6, #1
+  STR     R6, [R5]
+.LendIfButton:                      @     }
+.LendIfTarget:                      @   }
+
+
   LSL     R0, R0, #1                @   ledState <<= 1;
 
   TST     R0, #0b11111111           @   if (ledState & 0b11111111 == 0) {
@@ -164,8 +194,19 @@ SysTick_Handler:
 .LendState:                         @   }
 
   STR     R0, [R4]                  @   word[ledStateAddress] = ledState;
+
+  LDR     R5, =game_over            @   if (gameOver) {
+  LDR     R5, [R5]
+  CMP     R5, #1
+  BNE     .LendIfGameOver
+  MOV     R0, #0b11111111           @     ledState = 0b11111111;
+.LendIfGameOver:                    @   }
                                     
   BL      setLEDs                   @   setLEDs(ledState);
+
+  LDR     R4, =button_press           @   button = false;
+  MOV     R5, #0
+  STR     R5, [R4]                    @
   
   LDR     R4, =blink_countdown      @   countdown = BLINK_PERIOD;
   LDR     R5, =BLINK_PERIOD         @
@@ -191,12 +232,9 @@ EXTI0_IRQHandler:
 
   PUSH  {R4,R5,LR}
 
-                                    @ if (LD3_start_blink < button_pressed_time < LD3_end_blink)
-
-  LDR   R4, =score_count            @   score_count++;
-  LDR   R5, [R4]
-  ADD   R5, R5, #1
-  STR   R5, [R4]
+  LDR   R4, =button_press           @ button = true;
+  MOV   R5, #1
+  STR   R5, [R4]                    @
 
   LDR   R4, =EXTI_PR                @ Clear (acknowledge) the interrupt
   MOV   R5, #(1<<0)                 @
@@ -233,6 +271,12 @@ blink_countdown:
   .space  4
 
 led_state:
+  .space  4
+
+button_press:
+  .space  4
+
+game_over:
   .space  4
 
   .end
