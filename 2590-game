@@ -190,8 +190,48 @@ SysTick_Handler:
   LDR     R5, [R5]
   CMP     R5, #1
   BNE     .LelseIfGameOver
-  EOR     R0, R0, #0b11111111       @     ledState ^= 0b11111111;
+
+  LDR     R5, =game_over            @   if (gameOver) {
+  LDR     R5, [R5]
+  CMP     R5, #1                    
+  BNE     .LelseIfGameOver
+
+  LDR     R4, =blink_count
+  MOV     R5, #0
+  STR     R5, [R4]
+
+  CMP     R5, #6                    @      if (blink_count <= 6) {
+  BGT     .LscorePhase
+
+  TST     R5, #1
+  BEQ     .LallOff
+  MOV     R0, #0b11111111
   B       .LendIfGameOver
+
+.LallOff:
+  MOV     R0, #0b00000000
+  B       .LendIfGameOver
+
+.LscorePhase:
+  LDR     R6, =score_count
+  LDR     R6, [R6]
+  LSL     R6, R6, #1
+  ADD     R6, R6, #6
+  CMP     R5, R6
+  BGE     .LdoneScore
+  SUB     R4, R5, #6
+  TST     R4, #1
+  BEQ     .LstartOff
+  MOV     R0, #0b00100000
+  B       .LendIfGameOver
+.LstartOff:
+  MOV     R0, #0b00000000
+  B       .LendIfGameOver
+
+.LdoneScore:
+  MOV     R0, #0b00000000
+  B       .LendIfGameOver
+
 .LelseIfGameOver:                   @   } else {
 
   LSL     R0, R0, #1                @     ledState <<= 1;
@@ -266,6 +306,9 @@ setLEDs:
   .section .data
   
 score_count:
+  .space  4
+
+blink_count:
   .space  4
 
 blink_countdown:
