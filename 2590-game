@@ -197,35 +197,45 @@ SysTick_Handler:
   BNE     .LelseIfGameOver
 
   LDR     R4, =blink_count
-  MOV     R5, #0
   STR     R5, [R4]
 
-  CMP     R5, #6                    @      if (blink_count <= 6) {
-  BGT     .LscorePhase
+  CMP     R5, #6                    @   if (blink_count <= 6) {
+  BGT     .LscorePhase              @   }
 
-  TST     R5, #1
+  TST     R5, #1                    @   if (blink_count % 2 == 1) {
   BEQ     .LallOff
-  MOV     R0, #0b11111111
+  MOV     R0, #0b11111111           @   ledState = 0b11111111;
+  B       .LincrementBlink
+
+.LallOff:                           @   } else {
+  MOV     R0, #0b00000000           @     ledState = 0b00000000;
+                                    @   }
+.LincrementBlink:                  
+  ADD     R5, R5, #1                @   blink_count++;
+  STR     R5, [R4]                  
   B       .LendIfGameOver
 
-.LallOff:
-  MOV     R0, #0b00000000
-  B       .LendIfGameOver
-
-.LscorePhase:
-  LDR     R6, =score_count
+.LscorePhase:                       @   } else {
+  LDR     R6, =score_count          @     score_limit = score * 2 + 6;
   LDR     R6, [R6]
   LSL     R6, R6, #1
   ADD     R6, R6, #6
-  CMP     R5, R6
-  BGE     .LdoneScore
-  SUB     R4, R5, #6
-  TST     R4, #1
+
+  CMP     R5, R6                    @   if (blink_count >= score_limit) {
+  BGE     .LdoneScore               @   }
+
+  SUB     R4, R5, #6                @   score = blink_count - 6;
+  TST     R4, #1                    @   if (score % 2 != 1) {
   BEQ     .LstartOff
-  MOV     R0, #0b00100000
-  B       .LendIfGameOver
-.LstartOff:
-  MOV     R0, #0b00000000
+  MOV     R0, #0b00100000           @     ledState = 0b00100000;
+  B       .LscoreIncrement
+.LstartOff:                         @   } else {
+  MOV     R0, #0b00000000           @     ledState = 0b00000000;
+                                    @   }
+.LscoreIncrement:                   @   blink_count++
+  LDR     R4, =blink_count
+  ADD     R5, R5, #1
+  STR     R5, [R4]
   B       .LendIfGameOver
 
 .LdoneScore:
