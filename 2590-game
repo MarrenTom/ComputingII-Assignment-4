@@ -143,9 +143,6 @@ Main:
   @ Idle loop forever (welcome to interrupts!!)
 Idle_Loop:
   B     Idle_Loop
-  
-End_Main:
-  POP   {R4-R6,PC}
 
 
 
@@ -233,7 +230,7 @@ SysTick_Handler:
   TST     R4, #1                    @   if (score % 2 != 1) {
   BEQ     .LstartOff
 
-  MOV     R0, #0b00100000           @     ledState = 0b00100000;
+  MOV     R0, #0b00000001           @     ledState = 0b00000001;
   B       .LblinkScoreInc
 
 .LstartOff:
