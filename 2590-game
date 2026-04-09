@@ -44,12 +44,12 @@ Main:
   @   by setting bits of GPIOE_MODER to 01 (GPIO Port E Mode Register)
   @   (by BIClearing then ORRing)
   LDR     R4, =GPIOE_MODER
-  LDR     R5, [R4]                    @ Read ...
+  LDR     R5, [R4]                              @ Read ...
   LDR     R6, =0b1111111111111111<<(LD4_PIN*2)
-  BIC     R5, R6                      @ Modify ...
+  BIC     R5, R6                                @ Modify ...
   LDR     R6, =0b0101010101010101<<(LD4_PIN*2)
-  ORR     R5, R6                      @ write 01 to bits   
-  STR     R5, [R4]                    @ Write 
+  ORR     R5, R6                                @ Write 01 to bits   
+  STR     R5, [R4]                              @ Write 
 
   @ Configure SysTick Timer to generate an interrupt every 1ms
 
@@ -100,8 +100,8 @@ Main:
   ORR     R5, R5, #1
   STR     R5, [R4]
 
-  @ Set falling edge detection on Line0
-  LDR     R4, =EXTI_FTSR
+  @ Set rising edge detection on Line0
+  LDR     R4, =EXTI_RTSR
   LDR     R5, [R4]
   ORR     R5, R5, #1
   STR     R5, [R4]
@@ -131,9 +131,9 @@ Main:
   MOV   R5, #7                        @
   STR   R5, [R4]                      @
 
-  @ Initialise blinkPeriod to 250
-  LDR   R4, =blink_period             @ blinkPeriod = 250;
-  MOV   R5, #250                    @
+  @ Initialise blinkPeriod to 500
+  LDR   R4, =blink_period             @ blinkPeriod = 500;
+  MOV   R5, #500                      @
   STR   R5, [R4]                      @
 
   @ Initialise the first countdown
@@ -182,12 +182,12 @@ SysTick_Handler:
   CMP     R4, #0
   BNE     .LcheckGameOver
 
-  LDR     R4, =blink_period         @     blinkPeriod *= 98;
+  LDR     R4, =blink_period         @     blinkPeriod *= 99;
   LDR     R5, [R4]
-  MOV     R6, #98
+  MOV     R6, #99
   MUL     R5, R5, R6
   
-  MOV     R6, #100                @     blinkPeriod /= 100;
+  MOV     R6, #100                  @     blinkPeriod /= 100;
   UDIV    R5, R5, R6
 
   CMP     R5, #50                   @     if (blinkPeriod < 50) {
@@ -197,7 +197,7 @@ SysTick_Handler:
 
   STR     R5, [R4]
 
-  CMP     R0, #0b100000           @     if (ledState == 0b100000) {
+  CMP     R0, #0b100000             @     if (ledState == 0b100000) {
   BNE     .LnotTarget
 
   LDR     R5, =button_press         @       if (buttonPress == true) {
@@ -261,7 +261,7 @@ SysTick_Handler:
   SUB     R5, R5, #1                @       scoreCount -= 1;
   STR     R5, [R4]
 
-  EOR     R0, R0, #0b10           @       ledState ^= 0b10;
+  EOR     R0, R0, #0b10             @       ledState ^= 0b10;
   B       .Lupdate                  @     }
 
 .Lrotate:                           @   } else {
