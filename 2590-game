@@ -23,8 +23,6 @@
   @ Definitions are in definitions.s to keep this file "clean"
   #include "definitions.S"
 
-  .equ    BLINK_PERIOD, 1000 @ TODO: temp orginal 250
-
   .section .text
   .type Main, %function
 Main:
@@ -52,12 +50,6 @@ Main:
   LDR     R6, =0b0101010101010101<<(LD4_PIN*2)
   ORR     R5, R6                      @ write 01 to bits   
   STR     R5, [R4]                    @ Write 
-
-  @ Initialise the first countdown
-
-  LDR     R4, =blink_countdown
-  LDR     R5, =BLINK_PERIOD
-  STR     R5, [R4]  
 
   @ Configure SysTick Timer to generate an interrupt every 1ms
 
@@ -119,8 +111,8 @@ Main:
   MOV     R5, #(1<<6)
   STR     R5, [R4]
 
-  @ Initialise state to zero
-  LDR   R4, =led_state                @ state = 1;
+  @ Initialise ledState to zero
+  LDR   R4, =led_state                @ ledState = 1;
   MOV   R5, #1                        @
   STR   R5, [R4]                      @
 
@@ -139,6 +131,19 @@ Main:
   MOV   R5, #7                        @
   STR   R5, [R4]                      @
 
+  @ Initialise blinkPeriod to 500
+  LDR   R4, =blink_period             @ blinkPeriod = 500;
+  MOV   R5, #500                    @
+  STR   R5, [R4]                      @
+
+  @ Initialise the first countdown
+
+  LDR     R4, =blink_countdown
+  LDR     R5, =blink_period
+  LDR     R5, [R5]
+  STR     R5, [R4]  
+
+
 
 
   @ Nothing else to do in Main
@@ -146,6 +151,8 @@ Main:
 Idle_Loop:
   B     Idle_Loop
 
+End_Main:
+  POP   {R4-R6,PC}
 
 
 @
@@ -170,7 +177,8 @@ SysTick_Handler:
   LDR     R4, =led_state            @   ledState = word[ledStateAddress];
   LDR     R0, [R4]                  @   
 
-  LDR     R4, =game_over            @   if (gameOver == false) {
+  LDR     R4, =game_over            @   if (gameOver) {
+  LDR     R4, [R4]
   CMP     R4, #0
   BNE     .LcheckGameOver
 
@@ -189,21 +197,26 @@ SysTick_Handler:
   B       .LcheckGameOver           @     }
 
 .LnotTarget:                        @     else if (buttonPress == true) {
-  LDR     R5, =button_press
-  LDR     R5, [R5]
-  CMP     R5, #1
+  LDR     R4, =button_press
+  LDR     R4, [R4]
+  CMP     R4, #1
   BNE     .LcheckGameOver
 
-  LDR     R5, =game_over            @       gameOver = true;
-  MOV     R6, #1
-  STR     R6, [R5]      
+  LDR     R4, =game_over            @       gameOver = true;
+  MOV     R5, #1
+  STR     R5, [R4]      
 
-  LDR     R5, =score_count          @       scoreCount *= 2;
-  LDR     R6, [R5]
-  LSL     R6, R6, #1
-  STR     R6, [R5]           
+  LDR     R4, =score_count          @       scoreCount *= 2;
+  LDR     R5, [R4]
+  LSL     R5, R5, #1
+  STR     R5, [R4]           
 
   LDR     R0, =0b11111111           @       ledState = 0b11111111;
+
+  LDR     R4, =blink_period         @       blinkPeriod = 250;
+  MOV     R5, #250
+  STR     R5, [R4]
+  
                                     @     }
                                     
 .LcheckGameOver:                    @   }
@@ -233,7 +246,7 @@ SysTick_Handler:
   SUB     R5, R5, #1                @       scoreCount -= 1;
   STR     R5, [R4]
 
-  EOR     R0, R0, #1                @       ledState ^= 1;
+  EOR     R0, R0, #0b10           @       ledState ^= 0b10;
   B       .Lupdate                  @     }
 
 .Lrotate:                           @   } else {
@@ -251,8 +264,9 @@ SysTick_Handler:
   MOV     R5, #0
   STR     R5, [R4]                  
   
-  LDR     R4, =blink_countdown      @   countdown = BLINK_PERIOD;
-  LDR     R5, =BLINK_PERIOD         
+  LDR     R4, =blink_countdown      @   countdown = blink_period;
+  LDR     R5, =blink_period         
+  LDR     R5, [R5]
   STR     R5, [R4]                  
 
 .Ldone:                             @ }
@@ -323,6 +337,9 @@ flash_count:
   .space  4
 
 blink_countdown:
+  .space  4
+
+blink_period:
   .space  4
 
   .end
