@@ -131,9 +131,9 @@ Main:
   MOV   R5, #7                        @
   STR   R5, [R4]                      @
 
-  @ Initialise blinkPeriod to 500
-  LDR   R4, =blink_period             @ blinkPeriod = 500;
-  MOV   R5, #500                    @
+  @ Initialise blinkPeriod to 250
+  LDR   R4, =blink_period             @ blinkPeriod = 250;
+  MOV   R5, #250                    @
   STR   R5, [R4]                      @
 
   @ Initialise the first countdown
@@ -177,10 +177,25 @@ SysTick_Handler:
   LDR     R4, =led_state            @   ledState = word[ledStateAddress];
   LDR     R0, [R4]                  @   
 
-  LDR     R4, =game_over            @   if (gameOver) {
+  LDR     R4, =game_over            @   if (!gameOver) {
   LDR     R4, [R4]
   CMP     R4, #0
   BNE     .LcheckGameOver
+
+  LDR     R4, =blink_period         @     blinkPeriod *= 98;
+  LDR     R5, [R4]
+  MOV     R6, #98
+  MUL     R5, R5, R6
+  
+  MOV     R6, #100                @     blinkPeriod /= 100;
+  UDIV    R5, R5, R6
+
+  CMP     R5, #50                   @     if (blinkPeriod < 50) {
+  BGE     .LnotMinimum
+  MOV     R5, #50                   @       blinkPeriod = 50;
+.LnotMinimum:                       @     }
+
+  STR     R5, [R4]
 
   CMP     R0, #0b100000           @     if (ledState == 0b100000) {
   BNE     .LnotTarget
@@ -264,7 +279,7 @@ SysTick_Handler:
   MOV     R5, #0
   STR     R5, [R4]                  
   
-  LDR     R4, =blink_countdown      @   countdown = blink_period;
+  LDR     R4, =blink_countdown      @   countdown = blinkPeriod;
   LDR     R5, =blink_period         
   LDR     R5, [R5]
   STR     R5, [R4]                  
@@ -303,7 +318,7 @@ EXTI0_IRQHandler:
 @
 @ setLEDs
 @ Given a bitmap of LED states, update the corresponding LEDs
-@
+@    
 @ Parameters:
 @   R0: bitmap of LED states (8-bits)
 @
