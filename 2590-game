@@ -134,6 +134,11 @@ Main:
   MOV   R5, #0                        @
   STR   R5, [R4]                      @
 
+  @ Initialise blink_count = 0;
+  LDR   R4, =blink_count              @ blink_count = 0;
+  MOV   R5, #0
+  STR   R5, [R4]
+
   @ Nothing else to do in Main
   @ Idle loop forever (welcome to interrupts!!)
 Idle_Loop:
@@ -155,52 +160,52 @@ SysTick_Handler:
   LDR   R4, =blink_countdown        @ if (countdown != 0) {
   LDR   R5, [R4]                    @
   CMP   R5, #0                      @
-  BEQ   .LelseFire                  @
+  BEQ   .Lfire                      @
 
-  SUB   R5, R5, #1                  @   countdown = countdown - 1;
+  SUB   R5, R5, #1                  @   countdown--;
   STR   R5, [R4]                    @
+  B     .Ldone                      @ }
 
-  B     .LendIfDelay                @ }
-
-.LelseFire:                         @ else {
+.Lfire:                             @ else {
 
   LDR     R4, =led_state            @   ledState = word[ledStateAddress];
   LDR     R0, [R4]                  @   
 
-  CMP     R0, #0b100000           @   if (ledState == 0b100000) {
-  BNE     .LendIfTarget
+  CMP     R0, #0b00000001           @   if (ledState == 0b100000) {
+  BNE     .LnotTarget
+
   LDR     R5, =button_press         @     if (button == true) {
   LDR     R5, [R5]
   CMP     R5, #1
-  BNE     .LelseIfButtton
-  LDR     R5, =score_count          @       score += 1;
+  BNE     .LcheckGameOver           @     }
+
+  LDR     R5, =score_count          @     score_count++;
   LDR     R6, [R5]
   ADD     R6, R6, #1
   STR     R6, [R5]
-  B       .LendIfButton             @     }
-.LelseIfButtton:                    @     else {
+  B       .LcheckGameOver           @     }
+
+.LnotTarget:                        @     else if (button_press == true) {
+  LDR     R5, =button_press
+  LDR     R5, [R5]
+  CMP     R5, #1
+  BNE     .LcheckGameOver
+
   LDR     R5, =game_over            @       gameOver = true;
   MOV     R6, #1
-  STR     R6, [R5]
-  MOV     R0, #0b11111111           @       ledState = 0b11111111;
-.LendIfButton:                      @     }
-.LendIfTarget:                      @   }
+  STR     R6, [R5]                  @     }
 
+.LcheckGameOver:
   LDR     R5, =game_over            @   if (gameOver) {
   LDR     R5, [R5]
   CMP     R5, #1
-  BNE     .LelseIfGameOver
+  BNE     .Lrotate
 
-  LDR     R5, =game_over            @   if (gameOver) {
-  LDR     R5, [R5]
-  CMP     R5, #1                    
-  BNE     .LelseIfGameOver
+  LDR     R4, =blink_count          @   load blink_count
+  LDR     R5, [R4]
 
-  LDR     R4, =blink_count
-  STR     R5, [R4]
-
-  CMP     R5, #6                    @   if (blink_count <= 6) {
-  BGT     .LscorePhase              @   }
+  CMP     R5, #5                    @   if (blink_count <= 5) {
+  BGT     .LscoreBlink              @   }
 
   TST     R5, #1                    @   if (blink_count % 2 == 1) {
   BEQ     .LallOff
@@ -213,61 +218,61 @@ SysTick_Handler:
 .LincrementBlink:                  
   ADD     R5, R5, #1                @   blink_count++;
   STR     R5, [R4]                  
-  B       .LendIfGameOver
+  B       .Lupdate
 
-.LscorePhase:                       @   } else {
+.LscoreBlink:                       @   } else {
   LDR     R6, =score_count          @     score_limit = score * 2 + 6;
   LDR     R6, [R6]
   LSL     R6, R6, #1
   ADD     R6, R6, #6
 
   CMP     R5, R6                    @   if (blink_count >= score_limit) {
-  BGE     .LdoneScore               @   }
+  BGE     .LallDone                 @   }
 
   SUB     R4, R5, #6                @   score = blink_count - 6;
   TST     R4, #1                    @   if (score % 2 != 1) {
   BEQ     .LstartOff
+
   MOV     R0, #0b00100000           @     ledState = 0b00100000;
-  B       .LscoreIncrement
-.LstartOff:                         @   } else {
-  MOV     R0, #0b00000000           @     ledState = 0b00000000;
-                                    @   }
-.LscoreIncrement:                   @   blink_count++
-  LDR     R4, =blink_count
+  B       .LblinkScoreInc
+
+.LstartOff:
+  MOV     R0, #0b00000000
+
+.LblinkScoreInc:
+  LDR     R4, =blink_count          @   blink_count++
   ADD     R5, R5, #1
   STR     R5, [R4]
-  B       .LendIfGameOver
+  B       .Lupdate
 
-.LdoneScore:
+.LallDone:
   MOV     R0, #0b00000000
-  B       .LendIfGameOver
+  B       .Lupdate
 
-.LelseIfGameOver:                   @   } else {
-
+.Lrotate:                           @   } else {
   LSL     R0, R0, #1                @     ledState <<= 1;
 
   TST     R0, #0b11111111           @     if (ledState & 0b11111111 == 0) {
-  BNE     .LendState
+  BNE     .Lupdate
   MOV     R0, #1                    @       ledState = 1;
-.LendState:                         @     }
-.LendIfGameOver:                    @   }
-                                    
-  STR     R0, [R4]                  @   word[ledStateAddress] = ledState;
-  BL      setLEDs                   @   setLEDs(ledState);
+.Lupdate:                           @     }
+  LDR     R4, =led_state
+  STR     R0, [R4]
+  BL      setLEDs
 
   LDR     R4, =button_press         @   button = false;
   MOV     R5, #0
   STR     R5, [R4]                  
   
   LDR     R4, =blink_countdown      @   countdown = BLINK_PERIOD;
-  LDR     R5, =BLINK_PERIOD         @
-  STR     R5, [R4]                  @
+  LDR     R5, =BLINK_PERIOD         
+  STR     R5, [R4]                  
 
-.LendIfDelay:                       @ }
+.Ldone:                             @ }
 
   LDR     R4, =SCB_ICSR             @ Clear (acknowledge) the interrupt
-  LDR     R5, =SCB_ICSR_PENDSTCLR   @
-  STR     R5, [R4]                  @
+  LDR     R5, =SCB_ICSR_PENDSTCLR   
+  STR     R5, [R4]                  
 
   @ Return from interrupt handler
   POP  {R4-R6, PC}
