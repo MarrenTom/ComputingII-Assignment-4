@@ -9,6 +9,8 @@
 
   #include "definitions.S"
 
+  .equ    BLINK_PERIOD, 1000
+
   .section .text
   .type Main, %function
 Main:
@@ -27,16 +29,9 @@ Main:
   ORR     R5, R6
   STR     R5, [R4]
 
-  @ initialise blink_period
-  LDR R4, =blink_period
-  MOV R5, #500
-  STR R5, [R4]
-
-  @ initialise countdown
-  LDR R4, =blink_countdown
-  LDR R5, =blink_period
-  LDR R5, [R5]
-  STR R5, [R4]
+  LDR     R4, =blink_countdown
+  LDR     R5, =BLINK_PERIOD
+  STR     R5, [R4]
 
   LDR     R4, =SCB_ICSR
   LDR     R5, =SCB_ICSR_PENDSTCLR
@@ -45,7 +40,7 @@ Main:
   LDR     R4, =SYSTICK_CSR
   LDR     R5, =0
   STR     R5, [R4]
-  
+
   LDR     R4, =SYSTICK_LOAD
   LDR     R5, =7999
   STR     R5, [R4]
@@ -62,25 +57,6 @@ Main:
   MOV   R5, #0
   STR   R5, [R4]
 
-  LDR     R4, =SYSCFG_EXTIICR1
-  LDR     R5, [R4]
-  BIC     R5, R5, #0b1111
-  STR     R5, [R4]
-
-  LDR     R4, =EXTI_IMR
-  LDR     R5, [R4]
-  ORR     R5, R5, #1
-  STR     R5, [R4]
-
-  LDR     R4, =EXTI_FTSR
-  LDR     R5, [R4]
-  ORR     R5, R5, #1
-  STR     R5, [R4]
-
-  LDR     R4, =NVIC_ISER
-  MOV     R5, #(1<<6)
-  STR     R5, [R4]
-
   LDR   R4, =led_state
   MOV   R5, #1
   STR   R5, [R4]
@@ -93,28 +69,23 @@ Main:
   MOV   R5, #0
   STR   R5, [R4]
 
-  LDR R4, =blink_count
-  MOV R5, #0
-  STR R5, [R4]
-
-  LDR R4, =game_over_phase
-  MOV R5, #0
+  LDR   R4, =blink_count
+  MOV   R5, #0
   STR   R5, [R4]
 
-  LDR R4, =score_blink_count
-  MOV R5, #0
-  STR R5, [R4]
+  LDR   R4, =game_over_phase
+  MOV   R5, #0
+  STR   R5, [R4]
+
+  LDR   R4, =score_blink_count
+  MOV   R5, #0
+  STR   R5, [R4]
 
 Idle_Loop:
-  B     Idle_Loop
-  
-End_Main:
-  POP   {R4-R6,PC}
+  B Idle_Loop
 
 
-  .type  SysTick_Handler, %function
 SysTick_Handler:
-
   PUSH  {R4-R6, LR}
 
   LDR   R4, =blink_countdown
@@ -133,20 +104,26 @@ SysTick_Handler:
 
   CMP     R0, #0b100000
   BNE     .LendIfTarget
+
   LDR     R5, =button_press
   LDR     R5, [R5]
   CMP     R5, #1
   BNE     .LelseIfButtton
+
   LDR     R5, =score_count
   LDR     R6, [R5]
   ADD     R6, R6, #1
   STR     R6, [R5]
   B       .LendIfButton
+
 .LelseIfButtton:
+
   LDR     R5, =game_over
   MOV     R6, #1
   STR     R6, [R5]
+
   MOV     R0, #0b11111111
+
 .LendIfButton:
 .LendIfTarget:
 
@@ -155,89 +132,31 @@ SysTick_Handler:
   CMP R5, #1
   BNE .LnormalPlay
 
-  LDR R4, =game_over_phase
-  LDR R5, [R4]
-  CMP R5, #0
-  BNE .LphaseOne
-
-  EOR R0, R0, #0b11111111
-  TST R0, #0b11111111
-  BNE .LendIfGameOver
-
-  LDR R4, =blink_count
-  LDR     R5, [R4]
-  ADD     R5, R5, #1
-  STR     R5, [R4]
-
-  CMP R5, #3
-  BNE .LendIfGameOver
-
-  MOV R5, #1
-  LDR R4, =game_over_phase
-  STR R5, [R4]
-  MOV R0, #0
-  B .LendIfGameOver
-
-.LphaseOne:
-  LDR R4, =score_blink_count
-  LDR R5, [R4]
-
-  LDR R6, =score_count
-  LDR R6, [R6]
-
-  CMP R5, R6
-  BGE .LscoreDone
-
-  TST R0, #0b1
-  BNE .LturnOff
-
-  MOV R0, #0b1
-  B .LendIfGameOver
-
-.LturnOff:
-  MOV R0, #0
-  ADD R5, R5, #1
-  STR R5, [R4]
-  B .LendIfGameOver
-
-.LscoreDone:
-  MOV R0, #0
   B .LendIfGameOver
 
 .LnormalPlay:
 
-  @ speed increase
-  LDR R4, =blink_period
-  LDR R5, [R4]
-  MOV R6, #99
-  MUL R5, R5, R6
-  MOV R6, #100
-  UDIV R5, R5, R6
-  CMP R5, #100
-  BGE .LspeedOK
-  MOV R5, #100
-.LspeedOK:
-  STR R5, [R4]
-
   LSL     R0, R0, #1
+
   TST     R0, #0b11111111
   BNE     .LendState
   MOV     R0, #1
+
 .LendState:
 
 .LendIfGameOver:
 
   LDR R4, =led_state
   STR R0, [R4]
-  BL      setLEDs
+
+  BL setLEDs
 
   LDR     R4, =button_press
   MOV     R5, #0
   STR     R5, [R4]
-  
+
   LDR     R4, =blink_countdown
-  LDR     R5, =blink_period
-  LDR     R5, [R5]
+  LDR     R5, =BLINK_PERIOD
   STR     R5, [R4]
 
 .LendIfDelay:
@@ -249,7 +168,6 @@ SysTick_Handler:
   POP  {R4-R6, PC}
 
 
-  .type  EXTI0_IRQHandler, %function
 EXTI0_IRQHandler:
 
   PUSH  {R4,R5,LR}
@@ -266,6 +184,7 @@ EXTI0_IRQHandler:
 
 
 setLEDs:
+
   PUSH    {R4-R6,LR}
 
   LDR     R5, =GPIOE_ODR
@@ -277,16 +196,31 @@ setLEDs:
 
   POP     {R4-R6,PC}
 
-  .section .data
-  
-score_count:        .space 4
-blink_countdown:    .space 4
-led_state:          .space 4
-button_press:       .space 4
-game_over:          .space 4
-blink_count:        .space 4
-game_over_phase:    .space 4
-score_blink_count:  .space 4
-blink_period:       .space 4
 
-  .end
+.section .data
+
+score_count:
+  .space 4
+
+blink_countdown:
+  .space 4
+
+led_state:
+  .space 4
+
+button_press:
+  .space 4
+
+game_over:
+  .space 4
+
+blink_count:
+  .space 4
+
+game_over_phase:
+  .space 4
+
+score_blink_count:
+  .space 4
+
+.end
