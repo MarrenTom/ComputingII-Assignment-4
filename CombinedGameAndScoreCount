@@ -1,4 +1,4 @@
-  .syntax unified
+.syntax unified
   .cpu cortex-m4
   .fpu softvfp
   .thumb
@@ -7,6 +7,7 @@
   .global SysTick_Handler
   .global EXTI0_IRQHandler
 
+  @ Definitions are in definitions.s to keep this file "clean"
   #include "definitions.S"
 
   .equ    BLINK_PERIOD, 1000
@@ -16,211 +17,344 @@
 Main:
   PUSH  {R4-R6,LR}
 
+  @ Enable GPIO port E by enabling its clock
   LDR     R4, =RCC_AHBENR
   LDR     R5, [R4]
   ORR     R5, R5, #(0b1 << (RCC_AHBENR_GPIOEEN_BIT))
   STR     R5, [R4]
 
+  @ Configure all LEDS for output
+  @   by setting bits of GPIOE_MODER to 01 (GPIO Port E Mode Register)
+  @   (by BIClearing then ORRing)
   LDR     R4, =GPIOE_MODER
-  LDR     R5, [R4]
+  LDR     R5, [R4]                              @ Read ...
   LDR     R6, =0b1111111111111111<<(LD4_PIN*2)
-  BIC     R5, R6
+  BIC     R5, R6                                @ Modify ...
   LDR     R6, =0b0101010101010101<<(LD4_PIN*2)
-  ORR     R5, R6
+  ORR     R5, R6                                @ Write 01 to bits   
+  STR     R5, [R4]                              @ Write
+
+  @ Configure SysTick Timer to generate an interrupt every 1ms
+
+  LDR     R4, =SCB_ICSR               @ Clear any pre-existing interrupts
+  LDR     R5, =SCB_ICSR_PENDSTCLR     @
+  STR     R5, [R4]                    @
+
+  LDR     R4, =SYSTICK_CSR            @ Stop SysTick timer
+  LDR     R5, =0                      @   by writing 0 to CSR
+  STR     R5, [R4]                    @   CSR is the Control and Status Register
+  
+  LDR     R4, =SYSTICK_LOAD           @ Set SysTick LOAD for 1ms delay
+  LDR     R5, =7999                   @ Assuming 8MHz clock
+  STR     R5, [R4]                    @ 
+
+  LDR     R4, =SYSTICK_VAL            @   Reset SysTick internal counter to 0
+  LDR     R5, =0x1                    @     by writing any value
   STR     R5, [R4]
 
+  LDR     R4, =SYSTICK_CSR            @   Start SysTick timer by setting CSR to 0x7
+  LDR     R5, =0x7                    @     set CLKSOURCE (bit 2) to system clock (1)
+  STR     R5, [R4]                    @     set TICKINT (bit 1) to 1 to enable interrupts
+                                      @     set ENABLE (bit 0) to 1
+
+  @
+  @ Prepare external interrupt Line 0 (USER pushbutton)
+  @ We'll count the number of times the button is pressed
+  @
+
+  @ Initialise score_count to zero
+  LDR   R4, =score_count              @ score_count = 0;
+  MOV   R5, #0                        @
+  STR   R5, [R4]                      @
+
+  @ Configure USER pushbutton (GPIO Port A Pin 0 on STM32F3 Discovery
+  @   kit) to use the EXTI0 external interrupt signal
+  @ Determined by bits 3..0 of the External Interrupt Control
+  @   Register (EXTIICR)
+  LDR     R4, =SYSCFG_EXTIICR1
+  LDR     R5, [R4]
+  BIC     R5, R5, #0b1111
+  STR     R5, [R4]
+
+  @ Enable (unmask) interrupts on external interrupt Line0
+  LDR     R4, =EXTI_IMR
+  LDR     R5, [R4]
+  ORR     R5, R5, #1
+  STR     R5, [R4]
+
+  @ Set rising edge detection on Line0
+  LDR     R4, =EXTI_RTSR
+  LDR     R5, [R4]
+  ORR     R5, R5, #1
+  STR     R5, [R4]
+
+  @ Enable NVIC interrupt #6 (external interrupt Line0)
+  LDR     R4, =NVIC_ISER
+  MOV     R5, #(1<<6)
+  STR     R5, [R4]
+
+  @ Initialise led_state to 1
+  LDR   R4, =led_state                @ led_state = 1;
+  MOV   R5, #1                        @
+  STR   R5, [R4]                      @
+
+  @ Initialise button_press to false
+  LDR   R4, =button_press             @ button_press = false;
+  MOV   R5, #0                        @
+  STR   R5, [R4]                      @
+
+  @ Initialise game_over to false
+  LDR   R4, =game_over                @ game_over = false;
+  MOV   R5, #0                        @
+  STR   R5, [R4]                      @
+
+  @ Initialise flash_count to 7
+  LDR   R4, =flash_count              @ flash_count = 7;
+  MOV   R5, #7                        @
+  STR   R5, [R4]                      @
+
+  @ Initialise blink_period to 500
+  LDR   R4, =blink_period             @ blink_period = 500;
+  MOV   R5, #500                      @
+  STR   R5, [R4]                      @
+
+  @ Initialise the first countdown
   LDR     R4, =blink_countdown
-  LDR     R5, =BLINK_PERIOD
+  LDR     R5, =blink_period
+  LDR     R5, [R5]
   STR     R5, [R4]
 
-  LDR     R4, =SCB_ICSR
-  LDR     R5, =SCB_ICSR_PENDSTCLR
-  STR     R5, [R4]
+  @ Initialise blink_count to 0
+  LDR   R4, =blink_count              @ blink_count = 0;
+  MOV   R5, #0                        @
+  STR   R5, [R4]                      @
 
-  LDR     R4, =SYSTICK_CSR
-  LDR     R5, =0
-  STR     R5, [R4]
+  @ Initialise game_over_phase to 0
+  LDR   R4, =game_over_phase          @ game_over_phase = 0;
+  MOV   R5, #0                        @
+  STR   R5, [R4]                      @
 
-  LDR     R4, =SYSTICK_LOAD
-  LDR     R5, =7999
-  STR     R5, [R4]
+  @ Initialise score_blink_count to 0
+  LDR   R4, =score_blink_count        @ score_blink_count = 0;
+  MOV   R5, #0                        @
+  STR   R5, [R4]                      @
 
-  LDR     R4, =SYSTICK_VAL
-  LDR     R5, =0x1
-  STR     R5, [R4]
-
-  LDR     R4, =SYSTICK_CSR
-  LDR     R5, =0x7
-  STR     R5, [R4]
-
-  LDR   R4, =score_count
-  MOV   R5, #0
-  STR   R5, [R4]
-
-  LDR   R4, =led_state
-  MOV   R5, #1
-  STR   R5, [R4]
-
-  LDR   R4, =button_press
-  MOV   R5, #0
-  STR   R5, [R4]
-
-  LDR   R4, =game_over
-  MOV   R5, #0
-  STR   R5, [R4]
-
-  LDR   R4, =blink_count
-  MOV   R5, #0
-  STR   R5, [R4]
-
-  LDR   R4, =game_over_phase
-  MOV   R5, #0
-  STR   R5, [R4]
-
-  LDR   R4, =score_blink_count
-  MOV   R5, #0
-  STR   R5, [R4]
-
+  @ Nothing else to do in Main
+  @ Idle loop forever (welcome to interrupts!!)
 Idle_Loop:
-  B Idle_Loop
+  B     Idle_Loop
+
+End_Main:
+  POP   {R4-R6,PC}
 
 
+@
+@ SysTick interrupt handler
+@
+  .type  SysTick_Handler, %function
 SysTick_Handler:
+
   PUSH  {R4-R6, LR}
 
-  LDR   R4, =blink_countdown
-  LDR   R5, [R4]
-  CMP   R5, #0
-  BEQ   .LelseFire
+  LDR   R4, =blink_countdown          @ if (blink_countdown != 0) {
+  LDR   R5, [R4]                      @
+  CMP   R5, #0                        @
+  BEQ   .Lfire                        @
 
-  SUB   R5, R5, #1
-  STR   R5, [R4]
-  B     .LendIfDelay
+  SUB   R5, R5, #1                    @   blink_countdown--;
+  STR   R5, [R4]                      @
+  B     .Ldone                        @ }
 
-.LelseFire:
+.Lfire:                               @ else {
 
-  LDR     R4, =led_state
-  LDR     R0, [R4]
+  LDR     R4, =led_state              @   led_state = word[ledStateAddress];
+  LDR     R0, [R4]                    @   
 
-  CMP     R0, #0b100000
-  BNE     .LendIfTarget
+  LDR     R4, =game_over              @   if (!game_over) {
+  LDR     R4, [R4]
+  CMP     R4, #0
+  BNE     .LcheckGameOver
 
-  LDR     R5, =button_press
+  LDR     R4, =blink_period           @     blink_period *= 99;
+  LDR     R5, [R4]
+  MOV     R6, #99
+  MUL     R5, R5, R6
+  
+  MOV     R6, #100                    @     blink_period /= 100;
+  UDIV    R5, R5, R6
+
+  CMP     R5, #50                     @     if (blink_period < 50) {
+  BGE     .LnotMinimum
+  MOV     R5, #50                     @       blink_period = 50;
+.LnotMinimum:                         @     }
+
+  STR     R5, [R4]
+
+  CMP     R0, #0b100000               @     if (led_state == 0b100000) {
+  BNE     .LnotTarget
+
+  LDR     R5, =button_press           @       if (button_press == true) {
   LDR     R5, [R5]
   CMP     R5, #1
-  BNE     .LelseIfButtton
+  BNE     .LcheckGameOver             @     
 
-  LDR     R5, =score_count
+  LDR     R5, =score_count            @         score_count++;
   LDR     R6, [R5]
   ADD     R6, R6, #1
-  STR     R6, [R5]
-  B       .LendIfButton
+  STR     R6, [R5]                    @       }
+  B       .LcheckGameOver             @     }
 
-.LelseIfButtton:
-
-  LDR     R5, =game_over
-  MOV     R6, #1
-  STR     R6, [R5]
-
-  MOV     R0, #0b11111111
-
-.LendIfButton:
-.LendIfTarget:
-
-  LDR R5, =game_over
-  LDR R5, [R5]
-  CMP R5, #1
-  BNE .LnormalPlay
-
-  B .LendIfGameOver
-
-.LnormalPlay:
-
-  LSL     R0, R0, #1
-
-  TST     R0, #0b11111111
-  BNE     .LendState
-  MOV     R0, #1
-
-.LendState:
-
-.LendIfGameOver:
-
-  LDR R4, =led_state
-  STR R0, [R4]
-
-  BL setLEDs
-
+.LnotTarget:                          @     else if (button_press == true) {
   LDR     R4, =button_press
+  LDR     R4, [R4]
+  CMP     R4, #1
+  BNE     .LcheckGameOver
+
+  LDR     R4, =game_over              @       game_over = true;
+  MOV     R5, #1
+  STR     R5, [R4]      
+
+  LDR     R4, =score_count            @       score_count *= 2;
+  LDR     R5, [R4]
+  LSL     R5, R5, #1
+  STR     R5, [R4]           
+
+  LDR     R0, =0b11111111             @       led_state = 0b11111111;
+
+  LDR     R4, =blink_period           @       blink_period = 250;
+  MOV     R5, #250
+  STR     R5, [R4]
+                                      @     }
+
+.LcheckGameOver:                      @   }
+  LDR     R5, =game_over              @   if (game_over) {
+  LDR     R5, [R5]
+  CMP     R5, #1
+  BNE     .Lrotate
+
+  LDR     R4, =flash_count            @     if (flash_count != 0) {
+  LDR     R5, [R4]
+  CMP     R5, #0
+  BEQ     .LcheckScore
+
+  SUB     R5, R5, #1                  @       flash_count -= 1;
+  STR     R5, [R4]
+
+  LDR     R4, =0b11111111             @       led_state ^= 0b11111111;
+  EOR     R0, R0, R4
+  B       .Lupdate                    @     }
+
+.LcheckScore:
+  LDR     R4, =score_count            @     else if (score_count != 0) {
+  LDR     R5, [R4]
+  CMP     R5, #0
+  BEQ     .Lupdate
+
+  SUB     R5, R5, #1                  @       score_count -= 1;
+  STR     R5, [R4]
+
+  EOR     R0, R0, #0b10               @       led_state ^= 0b10;
+  B       .Lupdate                    @     }
+
+.Lrotate:                             @   } else {
+  LSL     R0, R0, #1                  @     led_state <<= 1;
+
+  TST     R0, #0b11111111             @     if (led_state & 0b11111111 == 0) {
+  BNE     .Lupdate
+  MOV     R0, #1                      @       led_state = 1;
+.Lupdate:                             @   }
+  LDR     R4, =led_state
+  STR     R0, [R4]
+  BL      setLEDs
+
+  LDR     R4, =button_press           @   button_press = false;
   MOV     R5, #0
-  STR     R5, [R4]
+  STR     R5, [R4]                  
+  
+  LDR     R4, =blink_countdown        @   blink_countdown = blink_period;
+  LDR     R5, =blink_period         
+  LDR     R5, [R5]
+  STR     R5, [R4]                  
 
-  LDR     R4, =blink_countdown
-  LDR     R5, =BLINK_PERIOD
-  STR     R5, [R4]
+.Ldone:                               @ }
 
-.LendIfDelay:
-
-  LDR     R4, =SCB_ICSR
-  LDR     R5, =SCB_ICSR_PENDSTCLR
-  STR     R5, [R4]
+  LDR     R4, =SCB_ICSR               @ Clear (acknowledge) the interrupt
+  LDR     R5, =SCB_ICSR_PENDSTCLR   
+  STR     R5, [R4]                  
 
   POP  {R4-R6, PC}
 
 
+@
+@ External interrupt line 0 interrupt handler
+@   (count button presses)
+@
+  .type  EXTI0_IRQHandler, %function
 EXTI0_IRQHandler:
 
   PUSH  {R4,R5,LR}
 
-  LDR   R4, =button_press
+  LDR   R4, =button_press             @ button_press = true;
   MOV   R5, #1
-  STR   R5, [R4]
+  STR   R5, [R4]                      @
 
-  LDR   R4, =EXTI_PR
-  MOV   R5, #(1<<0)
-  STR   R5, [R4]
+  LDR   R4, =EXTI_PR                  @ Clear (acknowledge) the interrupt
+  MOV   R5, #(1<<0)                   @
+  STR   R5, [R4]                      @
 
   POP  {R4,R5,PC}
 
 
+@
+@ setLEDs
+@ Given a bitmap of LED states, update the corresponding LEDs
+@    
+@ Parameters:
+@   R0: bitmap of LED states (8-bits)
+@
 setLEDs:
-
   PUSH    {R4-R6,LR}
 
-  LDR     R5, =GPIOE_ODR
+  LDR     R5, =GPIOE_ODR              @ led_state = word[ledAddress];
   LDR     R6, [R5]
-  LDR     R4, =0b11111111<<(LD4_PIN)
-  BIC     R6, R6, R4
-  ORR     R6, R6, R0, LSL LD4_PIN
-  STR     R6, [R5]
+  LDR     R4, =0b11111111<<(LD4_PIN)  @ mask = 0b11111111<<(LD4_PIN);
+  BIC     R6, R6, R4                  @ led_state = bitClear(led_state, mask);
+  ORR     R6, R6, R0, LSL LD4_PIN     @ led_state |= bitmap<<(LD4_PIN);
+  STR     R6, [R5]                    @ word[ledAddress] = led_state
 
   POP     {R4-R6,PC}
 
 
-.section .data
+  .section .data
 
 score_count:
-  .space 4
-
-blink_countdown:
-  .space 4
+  .space  4
 
 led_state:
-  .space 4
+  .space  4
 
 button_press:
-  .space 4
+  .space  4
 
 game_over:
-  .space 4
+  .space  4
+
+flash_count:
+  .space  4
+
+blink_countdown:
+  .space  4
+
+blink_period:
+  .space  4
 
 blink_count:
-  .space 4
+  .space  4
 
 game_over_phase:
-  .space 4
+  .space  4
 
 score_blink_count:
-  .space 4
+  .space  4
 
-.end
+  .end
