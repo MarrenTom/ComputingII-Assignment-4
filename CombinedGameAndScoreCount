@@ -93,28 +93,28 @@ Main:
   MOV     R5, #(1<<6)
   STR     R5, [R4]
 
-  @ Initialise led_state to 1
-  LDR   R4, =led_state                @ led_state = 1;
+  @ Initialise led_state to zero
+  LDR   R4, =led_state                @ ledState = 1;
   MOV   R5, #1                        @
   STR   R5, [R4]                      @
 
   @ Initialise button_press to false
-  LDR   R4, =button_press             @ button_press = false;
+  LDR   R4, =button_press             @ buttonPress = false;
   MOV   R5, #0                        @
   STR   R5, [R4]                      @
 
   @ Initialise game_over to false
-  LDR   R4, =game_over                @ game_over = false;
+  LDR   R4, =game_over                @ gameOver = false;
   MOV   R5, #0                        @
   STR   R5, [R4]                      @
 
   @ Initialise flash_count to 7
-  LDR   R4, =flash_count              @ flash_count = 7;
+  LDR   R4, =flash_count              @ flashCount = 7;
   MOV   R5, #7                        @
   STR   R5, [R4]                      @
 
   @ Initialise blink_period to 500
-  LDR   R4, =blink_period             @ blink_period = 500;
+  LDR   R4, =blink_period             @ blinkPeriod = 500;
   MOV   R5, #500                      @
   STR   R5, [R4]                      @
 
@@ -124,20 +124,17 @@ Main:
   LDR     R5, [R5]
   STR     R5, [R4]
 
-  @ Initialise blink_count to 0
-  LDR   R4, =blink_count              @ blink_count = 0;
-  MOV   R5, #0                        @
-  STR   R5, [R4]                      @
+  LDR   R4, =blink_count
+  MOV   R5, #0
+  STR   R5, [R4]
 
-  @ Initialise game_over_phase to 0
-  LDR   R4, =game_over_phase          @ game_over_phase = 0;
-  MOV   R5, #0                        @
-  STR   R5, [R4]                      @
+  LDR   R4, =game_over_phase
+  MOV   R5, #0
+  STR   R5, [R4]
 
-  @ Initialise score_blink_count to 0
-  LDR   R4, =score_blink_count        @ score_blink_count = 0;
-  MOV   R5, #0                        @
-  STR   R5, [R4]                      @
+  LDR   R4, =score_blink_count
+  MOV   R5, #0
+  STR   R5, [R4]
 
   @ Nothing else to do in Main
   @ Idle loop forever (welcome to interrupts!!)
@@ -149,136 +146,136 @@ End_Main:
 
 
 @
-@ SysTick interrupt handler
+@ SysTick interrupt handler (blink LED LD3)
 @
   .type  SysTick_Handler, %function
 SysTick_Handler:
 
   PUSH  {R4-R6, LR}
 
-  LDR   R4, =blink_countdown          @ if (blink_countdown != 0) {
-  LDR   R5, [R4]                      @
-  CMP   R5, #0                        @
-  BEQ   .Lfire                        @
+  LDR   R4, =blink_countdown        @ if (countdown != 0) {
+  LDR   R5, [R4]                    @
+  CMP   R5, #0                      @
+  BEQ   .Lfire                      @
 
-  SUB   R5, R5, #1                    @   blink_countdown--;
-  STR   R5, [R4]                      @
-  B     .Ldone                        @ }
+  SUB   R5, R5, #1                  @   countdown--;
+  STR   R5, [R4]                    @
+  B     .Ldone                      @ }
 
-.Lfire:                               @ else {
+.Lfire:                             @ else {
 
-  LDR     R4, =led_state              @   led_state = word[ledStateAddress];
-  LDR     R0, [R4]                    @   
+  LDR     R4, =led_state            @   ledState = word[ledStateAddress];
+  LDR     R0, [R4]                  @   
 
-  LDR     R4, =game_over              @   if (!game_over) {
+  LDR     R4, =game_over            @   if (!gameOver) {
   LDR     R4, [R4]
   CMP     R4, #0
   BNE     .LcheckGameOver
 
-  LDR     R4, =blink_period           @     blink_period *= 99;
+  LDR     R4, =blink_period         @     blinkPeriod *= 99;
   LDR     R5, [R4]
   MOV     R6, #99
   MUL     R5, R5, R6
   
-  MOV     R6, #100                    @     blink_period /= 100;
+  MOV     R6, #100                  @     blinkPeriod /= 100;
   UDIV    R5, R5, R6
 
-  CMP     R5, #50                     @     if (blink_period < 50) {
+  CMP     R5, #50                   @     if (blinkPeriod < 50) {
   BGE     .LnotMinimum
-  MOV     R5, #50                     @       blink_period = 50;
-.LnotMinimum:                         @     }
+  MOV     R5, #50                   @       blinkPeriod = 50;
+.LnotMinimum:                       @     }
 
   STR     R5, [R4]
 
-  CMP     R0, #0b100000               @     if (led_state == 0b100000) {
+  CMP     R0, #0b100000             @     if (ledState == 0b100000) {
   BNE     .LnotTarget
 
-  LDR     R5, =button_press           @       if (button_press == true) {
+  LDR     R5, =button_press         @       if (buttonPress == true) {
   LDR     R5, [R5]
   CMP     R5, #1
-  BNE     .LcheckGameOver             @     
+  BNE     .LcheckGameOver           @     
 
-  LDR     R5, =score_count            @         score_count++;
+  LDR     R5, =score_count          @         scoreCount++;
   LDR     R6, [R5]
   ADD     R6, R6, #1
-  STR     R6, [R5]                    @       }
-  B       .LcheckGameOver             @     }
+  STR     R6, [R5]                  @       }
+  B       .LcheckGameOver           @     }
 
-.LnotTarget:                          @     else if (button_press == true) {
+.LnotTarget:                        @     else if (buttonPress == true) {
   LDR     R4, =button_press
   LDR     R4, [R4]
   CMP     R4, #1
   BNE     .LcheckGameOver
 
-  LDR     R4, =game_over              @       game_over = true;
+  LDR     R4, =game_over            @       gameOver = true;
   MOV     R5, #1
   STR     R5, [R4]      
 
-  LDR     R4, =score_count            @       score_count *= 2;
+  LDR     R4, =score_count          @       scoreCount *= 2;
   LDR     R5, [R4]
   LSL     R5, R5, #1
   STR     R5, [R4]           
 
-  LDR     R0, =0b11111111             @       led_state = 0b11111111;
+  LDR     R0, =0b11111111           @       ledState = 0b11111111;
 
-  LDR     R4, =blink_period           @       blink_period = 250;
+  LDR     R4, =blink_period         @       blinkPeriod = 250;
   MOV     R5, #250
   STR     R5, [R4]
-                                      @     }
+                                    @     }
 
-.LcheckGameOver:                      @   }
-  LDR     R5, =game_over              @   if (game_over) {
+.LcheckGameOver:                    @   }
+  LDR     R5, =game_over            @   if (gameOver) {
   LDR     R5, [R5]
   CMP     R5, #1
   BNE     .Lrotate
 
-  LDR     R4, =flash_count            @     if (flash_count != 0) {
+  LDR     R4, =flash_count          @     if (flashCount != 0) {
   LDR     R5, [R4]
   CMP     R5, #0
   BEQ     .LcheckScore
 
-  SUB     R5, R5, #1                  @       flash_count -= 1;
+  SUB     R5, R5, #1                @       flashCount -= 1;
   STR     R5, [R4]
 
-  LDR     R4, =0b11111111             @       led_state ^= 0b11111111;
+  LDR     R4, =0b11111111           @       ledState ^= 0b11111111;
   EOR     R0, R0, R4
-  B       .Lupdate                    @     }
+  B       .Lupdate                  @     }
 
 .LcheckScore:
-  LDR     R4, =score_count            @     else if (score_count != 0) {
+  LDR     R4, =score_count          @     else if (scoreCount != 0) {
   LDR     R5, [R4]
   CMP     R5, #0
   BEQ     .Lupdate
 
-  SUB     R5, R5, #1                  @       score_count -= 1;
+  SUB     R5, R5, #1                @       scoreCount -= 1;
   STR     R5, [R4]
 
-  EOR     R0, R0, #0b10               @       led_state ^= 0b10;
-  B       .Lupdate                    @     }
+  EOR     R0, R0, #0b10             @       ledState ^= 0b10;
+  B       .Lupdate                  @     }
 
-.Lrotate:                             @   } else {
-  LSL     R0, R0, #1                  @     led_state <<= 1;
+.Lrotate:                           @   } else {
+  LSL     R0, R0, #1                @     ledState <<= 1;
 
-  TST     R0, #0b11111111             @     if (led_state & 0b11111111 == 0) {
+  TST     R0, #0b11111111           @     if (ledState & 0b11111111 == 0) {
   BNE     .Lupdate
-  MOV     R0, #1                      @       led_state = 1;
-.Lupdate:                             @   }
+  MOV     R0, #1                    @       ledState = 1;
+.Lupdate:                           @   }
   LDR     R4, =led_state
   STR     R0, [R4]
   BL      setLEDs
 
-  LDR     R4, =button_press           @   button_press = false;
+  LDR     R4, =button_press         @   buttonPress = false;
   MOV     R5, #0
   STR     R5, [R4]                  
   
-  LDR     R4, =blink_countdown        @   blink_countdown = blink_period;
+  LDR     R4, =blink_countdown      @   countdown = blinkPeriod;
   LDR     R5, =blink_period         
   LDR     R5, [R5]
   STR     R5, [R4]                  
 
-.Ldone:                               @ }
+.Ldone:                             @ }
 
-  LDR     R4, =SCB_ICSR               @ Clear (acknowledge) the interrupt
+  LDR     R4, =SCB_ICSR             @ Clear (acknowledge) the interrupt
   LDR     R5, =SCB_ICSR_PENDSTCLR   
   STR     R5, [R4]                  
 
@@ -294,13 +291,13 @@ EXTI0_IRQHandler:
 
   PUSH  {R4,R5,LR}
 
-  LDR   R4, =button_press             @ button_press = true;
+  LDR   R4, =button_press           @ buttonPress = true;
   MOV   R5, #1
-  STR   R5, [R4]                      @
+  STR   R5, [R4]                    @
 
-  LDR   R4, =EXTI_PR                  @ Clear (acknowledge) the interrupt
-  MOV   R5, #(1<<0)                   @
-  STR   R5, [R4]                      @
+  LDR   R4, =EXTI_PR                @ Clear (acknowledge) the interrupt
+  MOV   R5, #(1<<0)                 @
+  STR   R5, [R4]                    @
 
   POP  {R4,R5,PC}
 
@@ -315,12 +312,12 @@ EXTI0_IRQHandler:
 setLEDs:
   PUSH    {R4-R6,LR}
 
-  LDR     R5, =GPIOE_ODR              @ led_state = word[ledAddress];
+  LDR     R5, =GPIOE_ODR              @ ledState = word[ledAddress];
   LDR     R6, [R5]
   LDR     R4, =0b11111111<<(LD4_PIN)  @ mask = 0b11111111<<(LD4_PIN);
-  BIC     R6, R6, R4                  @ led_state = bitClear(led_state, mask);
-  ORR     R6, R6, R0, LSL LD4_PIN     @ led_state |= bitmap<<(LD4_PIN);
-  STR     R6, [R5]                    @ word[ledAddress] = led_state
+  BIC     R6, R6, R4                  @ ledState = bitClear(ledState, mask);
+  ORR     R6, R6, R0, LSL LD4_PIN     @ ledState |= bitmap<<(LD4_PIN);
+  STR     R6, [R5]                    @ word[ledAddress] = ledState
 
   POP     {R4-R6,PC}
 
